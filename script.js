@@ -1019,7 +1019,7 @@ function dibujarEscena() {
         canvas.width / 900,
         canvas.height / 1050,
         1
-    );
+    ) * (window.innerWidth <= 768 ? 0.5 : 1);
 
     if (girando) {
         // Loop vertical tipo montaña rusa: el ramo recorre una
