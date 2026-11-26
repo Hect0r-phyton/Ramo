@@ -1,5 +1,3 @@
-//SCRIPT.JS CON LOS CONTENIDOS DEL JARDÍN
-
 const canvas = document.getElementById("jardin");
 const ctx = canvas.getContext("2d");
 
@@ -14,6 +12,7 @@ const colores = {
 const separacionX = 4.5, separacionY = 6.5, tamanoCaracter = 7;
 const profundidadFocal = 1050;
 let caracteresPetalos = [], ultimoTiempo = 0, tiempoAnimacion = 0;
+let escalaTextoActual = 1;
 let anguloRamo = 0;
 const velocidadGiro = 0.80;
 
@@ -219,7 +218,7 @@ function crearEstructuraPaniculata() {
             inicioY: aleatorio(-.08, .08),
             finalX: fx,
             finalY: fy,
-            flores
+                        flores
         });
     }
 
@@ -279,7 +278,6 @@ function dibujarGrupoPaniculata(
     ctx.fillText("0", c.x, c.y);
     ctx.globalAlpha = 1;
 }
-
 function dibujarPaniculata(x, y, esc, estructura, id, angVista, prof, orient) {
     let grupo = 0;
 
@@ -309,17 +307,25 @@ function dibujarPetalo(
     xC, yC, longitud, anchoMax, color, p,
     idPetalo, idFlor, tipo, angVista = 0, prof = 0, orient = 0
 ) {
-    ctx.font = `${tipo === "lirio" ? 9 : tamanoCaracter}px monospace`;
+    // Sincroniza el tamaño de los caracteres con la escala de la flor.
+    // El mínimo evita que los números se vuelvan ilegibles en móviles.
+    const escalaTexto = Math.max(0.65, Math.min(1, escalaTextoActual));
+    const fuenteBase = tipo === "lirio" ? 9 : tamanoCaracter;
+    const fuente = Math.max(5, fuenteBase * escalaTexto);
+
+    ctx.font = `${fuente}px monospace`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    const pasoY = tipo === "lirio" ? 5.0 : separacionY;
-    const pasoX = tipo === "lirio" ? 3.4 : separacionX;
+    // Espaciado proporcional al tamaño real de los caracteres.
+    const pasoX = fuente * 0.88;
+    const pasoY = fuente * 1.08;
     const a = p.angulo * Math.PI / 180;
-    const ca = Math.cos(a), sa = Math.sin(a), anguloFlor = angVista + orient;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    const anguloFlor = angVista + orient;
     let fila = 0;
 
-    for (let d = 3; d < longitud; d += pasoY) {
+    for (let d = pasoY * 0.55; d < longitud; d += pasoY) {
         const t = d / longitud;
         const desp = calcularCurvatura(t, p.curva);
         const perfil = tipo === "lirio" ? perfilLirio : perfilRosa;
@@ -328,23 +334,42 @@ function dibujarPetalo(
 
         for (let xx = -an.izquierda; xx <= an.derecha; xx += pasoX) {
             const v = aleatorioEstable(fila, col, idPetalo, idFlor, p.capa || 0);
-            const distB = xx < 0 ? an.izquierda - Math.abs(xx) : an.derecha - xx;
-            const borde = distB <= pasoX * 2.0 || t < .12 || t > .88;
-            const num = borde ? (v < .90 ? "1" : "0") : (v < .16 ? "1" : "0");
+            const distB = xx < 0
+                ? an.izquierda - Math.abs(xx)
+                : an.derecha - xx;
+
+            // El borde ocupa una franja estrecha, no casi todo el pétalo.
+            const borde = distB <= pasoX * 0.95 || t < 0.06 || t > 0.94;
+            const num = borde
+                ? (v < 0.68 ? "1" : "0")
+                : (v < 0.16 ? "1" : "0");
 
             const xl = xx + desp, yl = -d;
-            const xp = xl * ca - yl * sa, yp = xl * sa + yl * ca;
-            const pt = proyectarElementoFlor(xp, yp, xC, yC, prof, anguloFlor);
+            const xp = xl * ca - yl * sa;
+            const yp = xl * sa + yl * ca;
+            const pt = proyectarElementoFlor(
+                xp, yp, xC, yC, prof, anguloFlor
+            );
+
             const c = tipo === "rosaInterior"
                 ? interpolarColor(colores.rosaIntenso, colores.rosa, t)
                 : color;
 
-            ctx.globalAlpha = borde ? 1 : Math.max(.72, Math.min(1, .94 + v * .06));
-            ctx.fillStyle = borde ? colores.negro : c;
-            ctx.font = borde ? `bold ${tipo === "lirio" ? 9 : tamanoCaracter}px monospace` : `${tipo === "lirio" ? 9 : tamanoCaracter}px monospace`;
+            // Un borde sombreado del color de la flor, sin negro puro.
+            const colorBorde = interpolarColor(
+                c, colores.negro, tipo === "lirio" ? 0.24 : 0.30
+            );
+
+            ctx.globalAlpha = borde ? 0.92 : Math.max(0.78, Math.min(1, 0.94 + v * 0.06));
+            ctx.fillStyle = borde ? colorBorde : c;
+            ctx.font = `${fuente}px monospace`;
             ctx.fillText(num, pt.x, pt.y);
+
             caracteresPetalos.push({
-                x: pt.x, y: pt.y, numero: num, alpha: ctx.globalAlpha
+                x: pt.x,
+                y: pt.y,
+                numero: num,
+                alpha: ctx.globalAlpha
             });
 
             col++;
@@ -413,7 +438,6 @@ function dibujarRosaInterior(x, y, r, est, id, ang = 0, prof = 0, orient = 0) {
 
     dibujarCentro(x, y, r * .055, id, colores.rosaIntenso, ang, prof, orient);
 }
-
 function dibujarRosaLateral(x, y, r, est, id, ang = 0, prof = 0, orient = 0) {
     est.forEach((p, i) => {
         dibujarPetalo(
@@ -574,7 +598,6 @@ function dibujarEnvoltura(cx, cy, esc) {
 
     ctx.globalAlpha = 1;
 }
-
 // HOJAS VERDES BINARIAS: relleno de huecos entre flores
 function dibujarHoja(cx, cy, esc, angulo, longitud, ancho, id) {
     ctx.save();
@@ -634,8 +657,7 @@ const flores = [
     {tipo:"paniculata",posicionX:230,posicionY:-135,profundidad:130,orientacion:.8,radio:48,estructura:crearEstructuraPaniculata()},
     {tipo:"lirio",posicionX:145,posicionY:-115,profundidad:105,orientacion:.62,radio:78,estructura:crearEstructuraLirio()},
     {tipo:"rosaLateral",posicionX:-65,posicionY:-160,profundidad:100,orientacion:-.25,radio:57,estructura:crearEstructuraRosaLateral()},
-
-    // Plano medio: núcleo de rosas
+        // Plano medio: núcleo de rosas
     {tipo:"rosaInterior",posicionX:-155,posicionY:-30,profundidad:45,orientacion:-.5,radio:62,estructura:crearEstructuraRosaInterior()},
     {tipo:"lirio",posicionX:-250,posicionY:35,profundidad:35,orientacion:-.8,radio:70,estructura:crearEstructuraLirio()},
     {tipo:"rosaInterior",posicionX:-65,posicionY:-35,profundidad:5,orientacion:.35,radio:69,estructura:crearEstructuraRosaInterior()},
@@ -788,12 +810,12 @@ const duracionGiro = 4200;
 
 // La composición trasera utiliza las mismas flores, pero con una
 // distribución espacial diferente, generada una sola vez.
-// No se modifica ni se mueve la composición frontal.
+// No se modifica ni se mueve la composición frontal original.
 
 const floresTrasera = flores.map(f => ({
     ...f,
     // Reflejo horizontal: la distribución trasera queda distinta
-    // sin alterar la composición frontal original.
+    // sin alterar la composición frontal.
     posicionX: -f.posicionX,
     posicionY: f.posicionY,
     profundidad: f.profundidad,
@@ -854,8 +876,7 @@ estilosInterfaz.textContent = `
         cursor: default;
         transform: none;
     }
-
-    @media (max-width: 480px) {
+            @media (max-width: 480px) {
         .controles-ramo {
             gap: 8px;
         }
@@ -974,9 +995,8 @@ function dibujarComposicion(listaFlores, cx, cy, escalaBase) {
         }
     }
 
-    dibujarContorno();
+    // Se omite el repaso negro del contorno: oscurecía y fusionaba los pétalos.
 }
-
 // ------------------------------------------------------------
 // MENSAJE DE LA VISTA TRASERA
 // ------------------------------------------------------------
@@ -1015,11 +1035,17 @@ function dibujarEscena() {
     const cx = canvas.width / 2;
     const cy = canvas.height / 2 - 35;
 
+    // La escala se adapta al tamaño de la pantalla sin reducirla
+    // adicionalmente en móviles. Esa reducción extra hacía que la
+    // geometría de los pétalos se encogiera, pero los caracteres
+    // binarios mantuvieran su tamaño y acabaran amontonándose.
     const escalaBase = Math.min(
         canvas.width / 900,
         canvas.height / 1050,
         1
-    ) * (window.innerWidth <= 768 ? 0.5 : 1);
+    );
+
+    escalaTextoActual = escalaBase;
 
     if (girando) {
         // Loop vertical tipo montaña rusa: el ramo recorre una
@@ -1069,8 +1095,7 @@ function girarRamo() {
     progresoGiro = 0;
     botonGirar.disabled = true;
     botonVista.disabled = true;
-
-    // El ramo está centrado en cx, cy. Animamos el propio canvas con
+        // El ramo está centrado en cx, cy. Animamos el propio canvas con
     // aceleración por hardware, en vez de capturar/redibujar fotogramas.
     ajustarCanvas();
     const cx = canvas.width / 2;
@@ -1251,8 +1276,6 @@ window.addEventListener("resize", () => {
     dibujarEscena();
     ajustarCanvasCorazones();
 });
-
-
 // ============================================================
 // FOCO CINEMATOGRÁFICO + PÉTALOS BINARIOS DE ROSA
 // ============================================================
@@ -1291,7 +1314,7 @@ function dibujarFocoCinematografico() {
     ctxFoco.fillRect(0, 0, w, h);
 
     // Haz de luz cálida desde arriba hacia el centro del ramo.
-    const cx = w * 0.5;
+        const cx = w * 0.5;
     const cy = h * 0.50 - 35;
     ctxFoco.save();
     ctxFoco.globalCompositeOperation = "screen";
@@ -1534,7 +1557,6 @@ function crearSpritePetalo(modelo, ancho, alto) {
 
     return sprite;
 }
-
 // ============================================================
 // DIBUJAR PÉTALO
 // ============================================================
@@ -1655,6 +1677,7 @@ function animarPetalosRosa(t) {
 
     rafPetalos = requestAnimationFrame(animarPetalosRosa);
 }
+
 
 
 // ============================================================
